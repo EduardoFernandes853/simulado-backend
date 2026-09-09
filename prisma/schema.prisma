@@ -1,0 +1,49 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// Tabela de Alunos
+model Aluno {
+  id         String      @id @default(uuid())
+  matricula  String      @unique
+  nome       String
+  email      String      @unique
+  criadoEm   DateTime    @default(now())
+  resultados Resultado[]
+}
+
+// Tabela do Banco de Questões
+model Questao {
+  id               String   @id @default(uuid())
+  disciplina       String
+  enunciado        String
+  gabarito         String
+  nivelDificuldade String   @default("Médio")
+}
+
+// Tabela de Simulados
+model Simulado {
+  id         String      @id @default(uuid())
+  titulo     String
+  data       DateTime    @default(now())
+  resultados Resultado[]
+}
+
+// Tabela de Notas e Diagnósticos
+model Resultado {
+  id          String   @id @default(uuid())
+  nota        Decimal  @db.Decimal(5, 2)
+  realizadoEm DateTime @default(now())
+  
+  alunoId     String
+  aluno       Aluno    @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+  
+  simuladoId  String
+  simulado    Simulado @relation(fields: [simuladoId], references: [id], onDelete: Cascade)
+}
