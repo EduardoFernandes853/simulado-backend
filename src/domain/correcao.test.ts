@@ -41,7 +41,7 @@ describe('corrigir', () => {
     const r = corrigir(gabarito.slice(0, 3), [{ questaoId: 'q1', alternativa: 'B' }]);
     expect(r.nota).toBe(33.33);
   });
-
+  
   it('agrupa o desempenho por tópico', () => {
     const r = corrigir(gabarito, [
       { questaoId: 'q1', alternativa: 'B' },

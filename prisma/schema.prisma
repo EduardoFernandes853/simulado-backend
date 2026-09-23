@@ -1,49 +1,161 @@
-generator client {
+generator client {  
   provider = "prisma-client-js"
 }
 
-datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
+datasource db {  
+  provider  = "postgresql"  
+  url       = env("DATABASE_URL")  
   directUrl = env("DIRECT_URL")
 }
 
-// Tabela de Alunos
-model Aluno {
-  id         String      @id @default(uuid())
-  matricula  String      @unique
-  nome       String
-  email      String      @unique
-  criadoEm   DateTime    @default(now())
-  resultados Resultado[]
+enum Papel {  
+  ALUNO  
+  PROFESSOR
 }
 
-// Tabela do Banco de Questões
-model Questao {
-  id               String   @id @default(uuid())
-  disciplina       String
-  enunciado        String
-  gabarito         String
-  nivelDificuldade String   @default("Médio")
+enum Dificuldade {  
+  FACIL  
+  MEDIA  
+  DIFICIL
 }
 
-// Tabela de Simulados
-model Simulado {
-  id         String      @id @default(uuid())
-  titulo     String
-  data       DateTime    @default(now())
-  resultados Resultado[]
+enum StatusTentativa {  
+  EM_ANDAMENTO  
+  FINALIZADA  
+  EXPIRADA
 }
 
-// Tabela de Notas e Diagnósticos
-model Resultado {
-  id          String   @id @default(uuid())
-  nota        Decimal  @db.Decimal(5, 2)
-  realizadoEm DateTime @default(now())
-  
-  alunoId     String
-  aluno       Aluno    @relation(fields: [alunoId], references: [id], onDelete: Cascade)
-  
-  simuladoId  String
-  simulado    Simulado @relation(fields: [simuladoId], references: [id], onDelete: Cascade)
+enum StatusAlerta {  
+  PENDENTE  
+  ATENDIDO
+}
+
+model Aluno {  
+  id        String   @id @default(uuid()) @db.Uuid  
+  authId    String?  @unique @map("auth_id") @db.Uuid  
+  matricula String   @unique  
+  nome      String  
+  email     String   @unique  
+  papel     Papel    @default(ALUNO)  
+  criadoEm  DateTime @default(now()) @map("criado_em")  
+  tentativas Tentativa[]  
+  alertas    AlertaMonitoria[]  
+  @@map("alunos")
+}
+
+model Disciplina {  
+  id      String   @id @default(uuid()) @db.Uuid  
+  nome    String   @unique  
+  topicos Topico[]  
+  @@map("disciplinas")
+}
+
+model Topico {  
+  id           String     @id @default(uuid()) @db.Uuid  
+  nome         String  
+  disciplinaId String     @map("disciplina_id") @db.Uuid  
+  disciplina   Disciplina @relation(fields: [disciplinaId], references: [id], onDelete: Cascade)  
+  questoes     Questao[]  
+  @@unique([disciplinaId, nome])  
+  @@map("topicos")
+}
+
+model Questao {  
+  id          String      @id @default(uuid()) @db.Uuid  
+  enunciado   String      @db.Text  
+  dificuldade Dificuldade @default(MEDIA)  
+  topicoId    String      @map("topico_id") @db.Uuid  
+  topico      Topico      @relation(fields: [topicoId], references: [id], onDelete: Restrict)  
+  alternativas Alternativa[]  
+  gabarito     Gabarito?  
+  simulados    SimuladoQuestao[]  
+  respostas    Resposta[]  
+  @@index([topicoId])  
+  @@map("questoes")
+}
+
+model Alternativa {  
+  id        String  @id @default(uuid()) @db.Uuid  
+  questaoId String  @map("questao_id") @db.Uuid  
+  letra     String  
+  texto     String  @db.Text  
+  questao   Questao @relation(fields: [questaoId], references: [id], onDelete: Cascade)  
+  @@unique([questaoId, letra])  
+  @@map("alternativas")
+}
+
+model Gabarito {  
+  questaoId          String  @id @map("questao_id") @db.Uuid  
+  alternativaCorreta String  @map("alternativa_correta")  
+  justificativa      String? @db.Text  
+  questao            Questao @relation(fields: [questaoId], references: [id], onDelete: Cascade)  
+  @@map("gabaritos")
+}
+
+model Simulado {  
+  id         String   @id @default(uuid()) @db.Uuid  
+  titulo     String  
+  descricao  String?  @db.Text  
+  duracaoMin Int      @default(60) @map("duracao_min")  
+  publicado  Boolean  @default(false)  
+  criadoEm   DateTime @default(now()) @map("criado_em")  
+  questoes   SimuladoQuestao[]  
+  tentativas Tentativa[]  
+  @@map("simulados")
+}
+
+model SimuladoQuestao {  
+  simuladoId String   @map("simulado_id") @db.Uuid  
+  questaoId  String   @map("questao_id") @db.Uuid  
+  ordem      Int  
+  simulado   Simulado @relation(fields: [simuladoId], references: [id], onDelete: Cascade)  
+  questao    Questao  @relation(fields: [questaoId], references: [id], onDelete: Restrict)  
+  @@id([simuladoId, questaoId])  
+  @@unique([simuladoId, ordem])  
+  @@map("simulado_questoes")
+}
+
+model Tentativa {  
+  id           String          @id @default(uuid()) @db.Uuid  
+  alunoId      String          @map("aluno_id") @db.Uuid  
+  simuladoId   String          @map("simulado_id") @db.Uuid  
+  iniciadaEm   DateTime        @default(now()) @map("iniciada_em")  
+  prazoEm      DateTime        @map("prazo_em")  
+  finalizadaEm DateTime?       @map("finalizada_em")  
+  nota         Decimal?        @db.Decimal(5, 2)  
+  status       StatusTentativa @default(EM_ANDAMENTO)  
+  aluno     Aluno            @relation(fields: [alunoId], references: [id], onDelete: Cascade)  
+  simulado  Simulado         @relation(fields: [simuladoId], references: [id], onDelete: Cascade)  
+  respostas Resposta[]  
+  alerta    AlertaMonitoria?  
+  @@index([alunoId])  
+  @@index([simuladoId])  
+  @@map("tentativas")
+}
+
+model Resposta {  
+  id          String    @id @default(uuid()) @db.Uuid  
+  tentativaId String    @map("tentativa_id") @db.Uuid  
+  questaoId   String    @map("questao_id") @db.Uuid  
+  alternativa String  
+  correta     Boolean  
+  tentativa   Tentativa @relation(fields: [tentativaId], references: [id], onDelete: Cascade)  
+  questao     Questao   @relation(fields: [questaoId], references: [id], onDelete: Restrict)  
+  @@unique([tentativaId, questaoId])  
+  @@map("respostas")
+}
+
+model AlertaMonitoria {  
+  id          String       @id @default(uuid()) @db.Uuid  
+  tentativaId String       @unique @map("tentativa_id") @db.Uuid  
+  alunoId     String       @map("aluno_id") @db.Uuid  
+  nota        Decimal      @db.Decimal(5, 2)  
+  limiar      Decimal      @db.Decimal(5, 2)  
+  status      StatusAlerta @default(PENDENTE)  
+  criadoEm    DateTime     @default(now()) @map("criado_em")  
+  atendidoEm  DateTime?    @map("atendido_em")  
+  tentativa Tentativa @relation(fields: [tentativaId], references: [id], onDelete: Cascade)  
+  aluno     Aluno     @relation(fields: [alunoId], references: [id], onDelete: Cascade)  
+  @@index([status])  
+  @@map("alertas_monitoria")
 }
