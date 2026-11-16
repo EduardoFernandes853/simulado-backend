@@ -1,4 +1,5 @@
-import 'dotenv/config';
+import { config as carregarEnv } from 'dotenv';
+carregarEnv({ quiet: true });
 import { z } from 'zod';
 
 const schema = z.object({
