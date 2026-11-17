@@ -1,12 +1,16 @@
 import { Router } from 'express';
 import { IdSchema } from '../contracts';
+import { config } from '../config';
 import { prisma } from '../prisma';
 import { requireAuth } from '../middleware/auth';
 import { ErroHttp } from '../middleware/erros';
 import { limiteDeExpiracao, segundosRestantes } from '../domain/prazo';
+import { criarLimitePorUsuario } from '../middleware/limites';
 
 export const simuladosRouter = Router();
 simuladosRouter.use(requireAuth);
+
+const limiteEscrita = criarLimitePorUsuario({ limite: config.RATE_LIMIT_ESCRITA_POR_MIN });
 
 simuladosRouter.get('/', async (_req, res) => {
   const simulados = await prisma.simulado.findMany({
@@ -25,7 +29,7 @@ simuladosRouter.get('/', async (_req, res) => {
   );
 });
 
-simuladosRouter.post('/:id/tentativas', async (req, res) => {
+simuladosRouter.post('/:id/tentativas', limiteEscrita, async (req, res) => {
   const simuladoId = IdSchema.parse(req.params.id);
   const aluno = req.aluno!;
   

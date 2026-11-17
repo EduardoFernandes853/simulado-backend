@@ -7,9 +7,12 @@ import { ErroHttp } from '../middleware/erros';
 import { corrigir } from '../domain/correcao';
 import { avaliarDesempenho } from '../domain/desempenho';
 import { prazoEstourado } from '../domain/prazo';
+import { criarLimitePorUsuario } from '../middleware/limites';
 
 export const tentativasRouter = Router();
 tentativasRouter.use(requireAuth);
+
+const limiteEscrita = criarLimitePorUsuario({ limite: config.RATE_LIMIT_ESCRITA_POR_MIN });
 
 tentativasRouter.get('/minhas', async (req, res) => {
   const tentativas = await prisma.tentativa.findMany({
@@ -28,7 +31,7 @@ tentativasRouter.get('/minhas', async (req, res) => {
   );
 });
 
-tentativasRouter.post('/:id/finalizar', async (req, res) => {
+tentativasRouter.post('/:id/finalizar', limiteEscrita, async (req, res) => {
   const id = IdSchema.parse(req.params.id);
   const { respostas } = FinalizarTentativaBodySchema.parse(req.body);
   const aluno = req.aluno!;
