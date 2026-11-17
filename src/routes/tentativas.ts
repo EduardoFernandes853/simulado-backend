@@ -6,8 +6,7 @@ import { requireAuth } from '../middleware/auth';
 import { ErroHttp } from '../middleware/erros';
 import { corrigir } from '../domain/correcao';
 import { avaliarDesempenho } from '../domain/desempenho';
-
-const TOLERANCIA_MS = 30_000;
+import { prazoEstourado } from '../domain/prazo';
 
 export const tentativasRouter = Router();
 tentativasRouter.use(requireAuth);
@@ -38,7 +37,8 @@ tentativasRouter.post('/:id/finalizar', async (req, res) => {
   if (!tentativa) throw new ErroHttp(404, 'Tentativa não encontrada.');
   if (tentativa.status !== 'EM_ANDAMENTO') throw new ErroHttp(409, 'Tentativa já finalizada.');
   
-  if (Date.now() > tentativa.prazoEm.getTime() + TOLERANCIA_MS) {
+  // AQUI ESTÁ A ATUALIZAÇÃO DA VERIFICAÇÃO DO PRAZO
+  if (prazoEstourado(tentativa.prazoEm)) {
     await prisma.tentativa.update({ where: { id }, data: { status: 'EXPIRADA', finalizadaEm: new Date() } });
     throw new ErroHttp(409, 'Prazo encerrado.');
   }

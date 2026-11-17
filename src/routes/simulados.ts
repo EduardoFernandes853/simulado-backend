@@ -3,6 +3,7 @@ import { IdSchema } from '../contracts';
 import { prisma } from '../prisma';
 import { requireAuth } from '../middleware/auth';
 import { ErroHttp } from '../middleware/erros';
+import { limiteDeExpiracao, segundosRestantes } from '../domain/prazo';
 
 export const simuladosRouter = Router();
 simuladosRouter.use(requireAuth);
@@ -47,20 +48,27 @@ simuladosRouter.post('/:id/tentativas', async (req, res) => {
   
   if (!simulado) throw new ErroHttp(404, 'Simulado não encontrado.');
   
+  // Tentativas abandonadas, fora da tolerância, deixam de ficar "em andamento" para sempre.
+  await prisma.tentativa.updateMany({
+    where: { alunoId: aluno.id, simuladoId, status: 'EM_ANDAMENTO', prazoEm: { lt: limiteDeExpiracao() } },
+    data: { status: 'EXPIRADA', finalizadaEm: new Date() },
+  });
+
   let tentativa = await prisma.tentativa.findFirst({
     where: { alunoId: aluno.id, simuladoId, status: 'EM_ANDAMENTO', prazoEm: { gt: new Date() } },
   });
-  
+  const retomada = tentativa !== null;
+
   if (!tentativa) {
     tentativa = await prisma.tentativa.create({
       data: { alunoId: aluno.id, simuladoId, prazoEm: new Date(Date.now() + simulado.duracaoMin * 60_000) },
     });
   }
-  
-  res.status(201).json({
+
+  res.status(retomada ? 200 : 201).json({
     tentativaId: tentativa.id,
     titulo: simulado.titulo,
-    segundosRestantes: Math.max(0, Math.floor((tentativa.prazoEm.getTime() - Date.now()) / 1000)),
+    segundosRestantes: segundosRestantes(tentativa.prazoEm),
     questoes: simulado.questoes.map((sq) => ({
       id: sq.questao.id,
       enunciado: sq.questao.enunciado,
