@@ -37,7 +37,6 @@ tentativasRouter.post('/:id/finalizar', async (req, res) => {
   if (!tentativa) throw new ErroHttp(404, 'Tentativa não encontrada.');
   if (tentativa.status !== 'EM_ANDAMENTO') throw new ErroHttp(409, 'Tentativa já finalizada.');
   
-  // AQUI ESTÁ A ATUALIZAÇÃO DA VERIFICAÇÃO DO PRAZO
   if (prazoEstourado(tentativa.prazoEm)) {
     await prisma.tentativa.update({ where: { id }, data: { status: 'EXPIRADA', finalizadaEm: new Date() } });
     throw new ErroHttp(409, 'Prazo encerrado.');
@@ -89,5 +88,61 @@ tentativasRouter.post('/:id/finalizar', async (req, res) => {
     porTopico: resultado.porTopico,
     alertaMonitoria: precisaMonitoria,
     limiar: config.LIMIAR_MONITORIA,
+  });
+});
+
+tentativasRouter.get('/:id/revisao', async (req, res) => {
+  const id = IdSchema.parse(req.params.id);
+  const aluno = req.aluno!;
+  
+  const tentativa = await prisma.tentativa.findFirst({
+    where: { id, alunoId: aluno.id, status: 'FINALIZADA' },
+    include: {
+      simulado: { select: { titulo: true } },
+      respostas: true,
+    },
+  });
+  
+  if (!tentativa) throw new ErroHttp(404, 'Tentativa não encontrada.');
+  
+  const itens = await prisma.simuladoQuestao.findMany({
+    where: { simuladoId: tentativa.simuladoId },
+    orderBy: { ordem: 'asc' },
+    include: {
+      questao: {
+        include: {
+          gabarito: true,
+          topico: { include: { disciplina: true } },
+          alternativas: { orderBy: { letra: 'asc' } },
+        },
+      },
+    },
+  });
+  
+  const mapaRespostas = new Map(tentativa.respostas.map((r) => [r.questaoId, r.alternativa]));
+  
+  const questoesRevisao = itens.map((i) => {
+    if (!i.questao.gabarito) throw new ErroHttp(500, 'Questão sem gabarito.');
+    
+    const escolhida = mapaRespostas.get(i.questaoId) ?? null;
+    const correta = i.questao.gabarito.alternativaCorreta;
+    
+    return {
+      id: i.questao.id,
+      enunciado: i.questao.enunciado,
+      disciplina: i.questao.topico.disciplina.nome,
+      topico: i.questao.topico.nome,
+      alternativas: i.questao.alternativas.map((a) => ({ letra: a.letra, texto: a.texto })),
+      escolhida,
+      correta,
+      acertou: escolhida === correta,
+      justificativa: i.questao.gabarito.justificativa,
+    };
+  });
+  
+  res.json({
+    titulo: tentativa.simulado.titulo,
+    nota: Number(tentativa.nota),
+    questoes: questoesRevisao,
   });
 });
