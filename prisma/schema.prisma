@@ -112,6 +112,7 @@ model SimuladoQuestao {
   questao    Questao  @relation(fields: [questaoId], references: [id], onDelete: Restrict)  
   @@id([simuladoId, questaoId])  
   @@unique([simuladoId, ordem])  
+  @@index([questaoId])  // <--- ÍNDICE ADICIONADO AQUI
   @@map("simulado_questoes")
 }
 
@@ -124,10 +125,10 @@ model Tentativa {
   finalizadaEm DateTime?       @map("finalizada_em")  
   nota         Decimal?        @db.Decimal(5, 2)  
   status       StatusTentativa @default(EM_ANDAMENTO)  
-  aluno     Aluno            @relation(fields: [alunoId], references: [id], onDelete: Cascade)  
-  simulado  Simulado         @relation(fields: [simuladoId], references: [id], onDelete: Cascade)  
-  respostas Resposta[]  
-  alerta    AlertaMonitoria?  
+  aluno        Aluno           @relation(fields: [alunoId], references: [id], onDelete: Cascade)  
+  simulado     Simulado        @relation(fields: [simuladoId], references: [id], onDelete: Cascade)  
+  respostas    Resposta[]  
+  alerta       AlertaMonitoria?  
   @@index([alunoId])  
   @@index([simuladoId])  
   @@map("tentativas")
@@ -142,6 +143,7 @@ model Resposta {
   tentativa   Tentativa @relation(fields: [tentativaId], references: [id], onDelete: Cascade)  
   questao     Questao   @relation(fields: [questaoId], references: [id], onDelete: Restrict)  
   @@unique([tentativaId, questaoId])  
+  @@index([questaoId]) // <--- ÍNDICE ADICIONADO AQUI
   @@map("respostas")
 }
 
@@ -154,8 +156,9 @@ model AlertaMonitoria {
   status      StatusAlerta @default(PENDENTE)  
   criadoEm    DateTime     @default(now()) @map("criado_em")  
   atendidoEm  DateTime?    @map("atendido_em")  
-  tentativa Tentativa @relation(fields: [tentativaId], references: [id], onDelete: Cascade)  
-  aluno     Aluno     @relation(fields: [alunoId], references: [id], onDelete: Cascade)  
+  tentativa   Tentativa    @relation(fields: [tentativaId], references: [id], onDelete: Cascade)  
+  aluno       Aluno        @relation(fields: [alunoId], references: [id], onDelete: Cascade)  
   @@index([status])  
+  @@index([alunoId]) // <--- ÍNDICE ADICIONADO AQUI
   @@map("alertas_monitoria")
 }
