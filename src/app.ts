@@ -4,33 +4,29 @@ import helmet from 'helmet';
 import { config } from './config';
 import { requireAuth } from './middleware/auth';
 import { tratarErros } from './middleware/erros';
+import { criarLimitePorIp } from './middleware/limites';
 import { simuladosRouter } from './routes/simulados';
 import { tentativasRouter } from './routes/tentativas';
 import { monitoriaRouter } from './routes/monitoria';
-// IMPORTAÇÃO NOVA: Adicionando a instância do Prisma para conectar ao banco
-import { prisma } from './prisma'; 
 
-export function criarApp() {
+interface Opcoes { limiteIpPorMin?: number }
+
+export function criarApp({ limiteIpPorMin = config.RATE_LIMIT_POR_MIN }: Opcoes = {}) {
   const app = express();
   
+  app.set('trust proxy', config.TRUST_PROXY_HOPS); // atrás do proxy do provedor
   app.use(helmet());
-  app.use(cors({ origin: config.CORS_ORIGINS.split(',').map((o) => o.trim()) }));
-  app.use(express.json({ limit: '100kb' }));
   
+  // CORS antes do limitador: um 429 sem cabeçalhos CORS aparece no navegador como erro de CORS.
+  app.use(cors({ origin: config.CORS_ORIGINS.split(',').map((o) => o.trim()) }));
+  
+  // Fora do limite: o selo "Sistema operacional" e o monitoramento batem aqui o tempo todo.
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok', hora: new Date().toISOString() });
   });
   
-  // ROTA NOVA: Força o Prisma a bater no Supabase para evitar que o projeto seja pausado
-  app.get('/health/db', async (_req, res) => {
-    try {
-      const alunos = await prisma.aluno.count();
-      res.json({ status: 'ok', alunos });
-    } catch (error) {
-      console.error('Erro na verificação do banco:', error);
-      res.status(503).json({ status: 'banco indisponível' });
-    }
-  });
+  app.use(criarLimitePorIp({ limite: limiteIpPorMin }));
+  app.use(express.json({ limit: '100kb' }));
   
   app.get('/me', requireAuth, (req, res) => {
     const a = req.aluno!;
@@ -41,6 +37,8 @@ export function criarApp() {
   app.use('/tentativas', tentativasRouter);
   app.use('/monitoria', monitoriaRouter);
   
+  app.use((_req, res) => { res.status(404).json({ erro: 'Rota não encontrada.' }); });
   app.use(tratarErros);
+  
   return app;
 }
