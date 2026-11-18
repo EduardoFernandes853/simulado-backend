@@ -77,9 +77,30 @@ export const AlertaMonitoriaSchema = z.object({
 });
 export const ListaAlertasSchema = z.array(AlertaMonitoriaSchema);
 
+export const QuestaoRevisaoSchema = z.object({
+  questaoId: IdSchema,
+  enunciado: z.string(),
+  disciplina: z.string(),
+  topico: z.string(),
+  alternativas: z.array(z.object({ letra: LetraSchema, texto: z.string() })),
+  escolhida: LetraSchema.nullable(),
+  correta: LetraSchema,
+  justificativa: z.string().nullable(),
+  acertou: z.boolean(),
+});
+
+export const RevisaoSchema = z.object({
+  tentativaId: IdSchema,
+  simulado: z.string(),
+  nota: z.number(),
+  questoes: z.array(QuestaoRevisaoSchema),
+});
+
 export type Aluno = z.infer<typeof AlunoSchema>;
 export type SimuladoResumo = z.infer<typeof SimuladoResumoSchema>;
 export type IniciarTentativaResposta = z.infer<typeof IniciarTentativaRespostaSchema>;
 export type ResultadoTentativa = z.infer<typeof ResultadoTentativaSchema>;
 export type HistoricoItem = z.infer<typeof HistoricoItemSchema>;
 export type AlertaMonitoria = z.infer<typeof AlertaMonitoriaSchema>;
+export type QuestaoRevisao = z.infer<typeof QuestaoRevisaoSchema>;
+export type Revisao = z.infer<typeof RevisaoSchema>;
