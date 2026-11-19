@@ -13,8 +13,12 @@ export interface ItemRevisao extends ItemRevisaoBase {
 }
 
 export function montarRevisao(
-  _itens: ItemRevisaoBase[],
-  _respostas: { questaoId: string; alternativa: string }[],
+  itens: ItemRevisaoBase[],
+  respostas: { questaoId: string; alternativa: string }[],
 ): ItemRevisao[] {
-  throw new Error('não implementado');
+  const escolhidas = new Map(respostas.map((r): [string, string] => [r.questaoId, r.alternativa]));
+  return itens.map((i) => {
+    const escolhida = escolhidas.get(i.questaoId) ?? null;
+    return { ...i, escolhida, acertou: escolhida === i.correta };
+  });
 }
