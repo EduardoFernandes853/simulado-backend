@@ -7,6 +7,7 @@ import { ErroHttp } from '../middleware/erros';
 import { corrigir } from '../domain/correcao';
 import { avaliarDesempenho } from '../domain/desempenho';
 import { prazoEstourado } from '../domain/prazo';
+import { montarRevisao } from '../domain/revisao';
 import { criarLimitePorUsuario } from '../middleware/limites';
 
 export const tentativasRouter = Router();
@@ -96,56 +97,44 @@ tentativasRouter.post('/:id/finalizar', limiteEscrita, async (req, res) => {
 
 tentativasRouter.get('/:id/revisao', async (req, res) => {
   const id = IdSchema.parse(req.params.id);
-  const aluno = req.aluno!;
-  
-  const tentativa = await prisma.tentativa.findFirst({
-    where: { id, alunoId: aluno.id, status: 'FINALIZADA' },
-    include: {
-      simulado: { select: { titulo: true } },
-      respostas: true,
-    },
+  // só tentativa FINALIZADA e do próprio aluno: antes disso o gabarito não sai do servidor
+  const t = await prisma.tentativa.findFirst({
+    where: { id, alunoId: req.aluno!.id, status: 'FINALIZADA' },
+    include: { simulado: { select: { titulo: true } }, respostas: true },
   });
-  
-  if (!tentativa) throw new ErroHttp(404, 'Tentativa não encontrada.');
-  
+  if (!t) throw new ErroHttp(404, 'Tentativa não encontrada.');
+
   const itens = await prisma.simuladoQuestao.findMany({
-    where: { simuladoId: tentativa.simuladoId },
+    where: { simuladoId: t.simuladoId },
     orderBy: { ordem: 'asc' },
     include: {
       questao: {
         include: {
           gabarito: true,
-          topico: { include: { disciplina: true } },
           alternativas: { orderBy: { letra: 'asc' } },
+          topico: { include: { disciplina: true } },
         },
       },
     },
   });
-  
-  const mapaRespostas = new Map(tentativa.respostas.map((r) => [r.questaoId, r.alternativa]));
-  
-  const questoesRevisao = itens.map((i) => {
+
+  const base = itens.map((i) => {
     if (!i.questao.gabarito) throw new ErroHttp(500, 'Questão sem gabarito.');
-    
-    const escolhida = mapaRespostas.get(i.questaoId) ?? null;
-    const correta = i.questao.gabarito.alternativaCorreta;
-    
     return {
-      id: i.questao.id,
+      questaoId: i.questaoId,
       enunciado: i.questao.enunciado,
       disciplina: i.questao.topico.disciplina.nome,
       topico: i.questao.topico.nome,
-      alternativas: i.questao.alternativas.map((a) => ({ letra: a.letra, texto: a.texto })),
-      escolhida,
-      correta,
-      acertou: escolhida === correta,
+      correta: i.questao.gabarito.alternativaCorreta,
       justificativa: i.questao.gabarito.justificativa,
+      alternativas: i.questao.alternativas.map((a) => ({ letra: a.letra, texto: a.texto })),
     };
   });
-  
+
   res.json({
-    titulo: tentativa.simulado.titulo,
-    nota: Number(tentativa.nota),
-    questoes: questoesRevisao,
+    tentativaId: t.id,
+    simulado: t.simulado.titulo,
+    nota: Number(t.nota),
+    questoes: montarRevisao(base, t.respostas),
   });
 });

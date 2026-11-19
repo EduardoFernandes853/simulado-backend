@@ -1,6 +1,7 @@
 import request from 'supertest';
 import { criarApp } from '../app';
 import { prisma } from '../prisma';
+import { RevisaoSchema } from '../contracts';
 
 jest.mock('../middleware/auth', () => ({
   requireAuth: (req: any, _res: any, next: any) => {
@@ -111,6 +112,70 @@ describe('POST /tentativas/:id/finalizar', () => {
     const res = await request(criarApp())
       .post(`/tentativas/${T}/finalizar`)
       .send({ respostas: [{ questaoId: Q1, alternativa: 'Z' }] });
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('GET /tentativas/:id/revisao', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  const tentativaFinalizada = {
+    id: T,
+    simuladoId: 'sim-1',
+    nota: 50,
+    simulado: { titulo: 'Diagnóstico' },
+    respostas: [{ questaoId: Q1, alternativa: 'B' }], // Q2 fica em branco
+  };
+
+  const itemRevisao = (questaoId: string, correta: string | null) => ({
+    questaoId,
+    questao: {
+      enunciado: `Enunciado ${questaoId}`,
+      gabarito: correta ? { alternativaCorreta: correta, justificativa: 'Porque sim.' } : null,
+      alternativas: [{ letra: 'A', texto: 'x' }, { letra: 'B', texto: 'y' }],
+      topico: { nome: 'Transporte', disciplina: { nome: 'Redes' } },
+    },
+  });
+
+  it('só libera tentativa FINALIZADA do próprio aluno, e não lê gabarito antes disso', async () => {
+    db.tentativa.findFirst.mockResolvedValue(null);
+
+    const res = await request(criarApp()).get(`/tentativas/${T}/revisao`);
+
+    expect(res.status).toBe(404);
+    expect(db.tentativa.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: T, alunoId: 'aluno-1', status: 'FINALIZADA' } }),
+    );
+    expect(db.simuladoQuestao.findMany).not.toHaveBeenCalled();
+  });
+
+  it('devolve acerto, erro e questão em branco, com os nomes do contrato', async () => {
+    db.tentativa.findFirst.mockResolvedValue(tentativaFinalizada);
+    db.simuladoQuestao.findMany.mockResolvedValue([itemRevisao(Q1, 'A'), itemRevisao(Q2, 'B')]);
+
+    const res = await request(criarApp()).get(`/tentativas/${T}/revisao`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ tentativaId: T, simulado: 'Diagnóstico', nota: 50 });
+    expect(res.body.questoes.map((q: { questaoId: string }) => q.questaoId)).toEqual([Q1, Q2]);
+    expect(res.body.questoes[0]).toMatchObject({ escolhida: 'B', correta: 'A', acertou: false, justificativa: 'Porque sim.' });
+    expect(res.body.questoes[1]).toMatchObject({ escolhida: null, correta: 'B', acertou: false });
+    // o front valida a resposta com este schema: qualquer divergência de nome quebra a tela
+    expect(RevisaoSchema.safeParse(res.body).error?.issues ?? []).toEqual([]);
+  });
+
+  it('500 quando uma questão está sem gabarito', async () => {
+    db.tentativa.findFirst.mockResolvedValue(tentativaFinalizada);
+    db.simuladoQuestao.findMany.mockResolvedValue([itemRevisao(Q1, null)]);
+
+    const res = await request(criarApp()).get(`/tentativas/${T}/revisao`);
+
+    expect(res.status).toBe(500);
+    expect(res.body.erro).toBe('Questão sem gabarito.');
+  });
+
+  it('400 para id inválido', async () => {
+    const res = await request(criarApp()).get('/tentativas/abc/revisao');
     expect(res.status).toBe(400);
   });
 });
