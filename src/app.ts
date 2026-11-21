@@ -42,3 +42,4 @@ export function criarApp({ limiteIpPorMin = config.RATE_LIMIT_POR_MIN }: Opcoes 
   
   return app;
 }
+const x: number = 'a';
