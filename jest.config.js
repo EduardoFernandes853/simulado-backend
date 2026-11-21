@@ -7,4 +7,12 @@ module.exports = {
   setupFiles: ['<rootDir>/jest.setup.ts'],
   collectCoverageFrom: ['src/**/*.ts', '!src/server.ts', '!src/prisma.ts', '!src/config.ts'],
   coverageDirectory: 'coverage',
+  coverageThreshold: {
+    global: {
+      statements: 85,
+      branches: 75,
+      functions: 90,
+      lines: 85,
+    },
+  },
 };
