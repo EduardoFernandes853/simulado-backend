@@ -21,6 +21,12 @@ describe('API sem autenticação', () => {
       expect(res.body.erro).toBe('Token ausente.');
     },
   );
+
+  it('PATCH /monitoria/alertas/:id/atender exige login (401)', async () => {
+    const res = await request(app).patch('/monitoria/alertas/44444444-4444-4444-8444-444444444444/atender');
+    expect(res.status).toBe(401);
+    expect(res.body.erro).toBe('Token ausente.');
+  });
 });
 
 describe('limite global', () => {
@@ -37,7 +43,7 @@ describe('limite global', () => {
     const app = criarApp({ limiteIpPorMin: 1 });
     await request(app).get('/nada').set('Origin', origem);
     const res = await request(app).get('/nada').set('Origin', origem);
-    
+
     expect(res.status).toBe(429);
     expect(res.headers['access-control-allow-origin']).toBe(origem);
   });
