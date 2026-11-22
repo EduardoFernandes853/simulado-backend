@@ -104,3 +104,7 @@ export type HistoricoItem = z.infer<typeof HistoricoItemSchema>;
 export type AlertaMonitoria = z.infer<typeof AlertaMonitoriaSchema>;
 export type QuestaoRevisao = z.infer<typeof QuestaoRevisaoSchema>;
 export type Revisao = z.infer<typeof RevisaoSchema>;
+export const DOMINIO_ALUNO = 'aluno.ifpa.edu.br';
+export function matriculaDoEmail(_email: string, _dominio: string = DOMINIO_ALUNO): string | null {
+  throw new Error('não implementado');
+}
