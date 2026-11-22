@@ -1,10 +1,13 @@
 import type { Request, Response } from 'express';
+import { Prisma } from '@prisma/client';
+import { config } from '../config';
 import { prisma } from '../prisma';
 import { exigirProfessor, requireAuth } from './auth';
 
 const mockGetUser = jest.fn();
 
 jest.mock('@supabase/supabase-js', () => ({
+  // referência preguiçosa: o factory roda antes de mockGetUser existir
   createClient: () => ({ auth: { getUser: (...args: unknown[]) => mockGetUser(...args) } }),
 }));
 jest.mock('../prisma', () => ({
@@ -13,24 +16,29 @@ jest.mock('../prisma', () => ({
 
 const db = prisma as unknown as { aluno: { findUnique: jest.Mock; create: jest.Mock } };
 const res = {} as Response;
-
 const requisicao = (authorization?: string) =>
   ({ headers: authorization ? { authorization } : {} }) as unknown as Request;
 
-const usuario = (meta: Record<string, unknown> = {}) => ({
+const MATRICULA = '20260001';
+const EMAIL = `${MATRICULA}@${config.DOMINIO_ALUNO}`;
+
+const usuario = (extra: { email?: string; confirmado?: string | null; meta?: Record<string, unknown> } = {}) => ({
   data: {
     user: {
       id: 'auth-1',
-      email: 'maria@ifpa.edu.br',
-      user_metadata: { nome: 'Maria Souza', matricula: '20260001', ...meta },
+      email: extra.email ?? EMAIL,
+      email_confirmed_at: extra.confirmado === undefined ? '2026-11-01T12:00:00Z' : extra.confirmado,
+      user_metadata: { nome: 'Maria Souza', ...extra.meta },
     },
   },
   error: null,
 });
 
+const listaOriginal = config.EMAILS_PROFESSORES;
 beforeEach(() => jest.resetAllMocks());
+afterEach(() => { config.EMAILS_PROFESSORES = listaOriginal; });
 
-describe('requireAuth', () => {
+describe('requireAuth: sessão', () => {
   it('401 sem cabeçalho Authorization', async () => {
     const next = jest.fn();
     await expect(requireAuth(requisicao(), res, next)).rejects.toMatchObject({ status: 401 });
@@ -46,9 +54,9 @@ describe('requireAuth', () => {
     await expect(requireAuth(requisicao('Bearer ruim'), res, jest.fn())).rejects.toMatchObject({ status: 401 });
   });
 
-  it('anexa o aluno existente e chama next', async () => {
+  it('anexa o aluno existente e NÃO revalida o e-mail (contas antigas continuam entrando)', async () => {
     const aluno = { id: 'a1', authId: 'auth-1', papel: 'ALUNO' };
-    mockGetUser.mockResolvedValue(usuario());
+    mockGetUser.mockResolvedValue(usuario({ email: 'antigo@gmail.com', confirmado: null }));
     db.aluno.findUnique.mockResolvedValue(aluno);
     const req = requisicao('Bearer ok');
     const next = jest.fn();
@@ -59,30 +67,77 @@ describe('requireAuth', () => {
     expect(next).toHaveBeenCalledTimes(1);
     expect(db.aluno.create).not.toHaveBeenCalled();
   });
+});
 
-  it('cria o cadastro no primeiro acesso', async () => {
+describe('requireAuth: primeiro acesso', () => {
+  beforeEach(() => db.aluno.findUnique.mockResolvedValue(null));
+
+  it('cria o cadastro com a matrícula derivada do e-mail', async () => {
     mockGetUser.mockResolvedValue(usuario());
-    db.aluno.findUnique.mockResolvedValue(null);
     db.aluno.create.mockResolvedValue({ id: 'a2', authId: 'auth-1', papel: 'ALUNO' });
     const next = jest.fn();
 
     await requireAuth(requisicao('Bearer ok'), res, next);
 
     expect(db.aluno.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ authId: 'auth-1', matricula: '20260001' }),
+      data: { authId: 'auth-1', email: EMAIL, nome: 'Maria Souza', matricula: MATRICULA, papel: 'ALUNO' },
     });
     expect(next).toHaveBeenCalledTimes(1);
   });
 
-  it('403 quando falta a matrícula', async () => {
-    mockGetUser.mockResolvedValue(usuario({ matricula: '' }));
-    db.aluno.findUnique.mockResolvedValue(null);
+  it('ignora a matrícula e o papel dos metadados, que o próprio usuário edita', async () => {
+    mockGetUser.mockResolvedValue(usuario({ meta: { matricula: '99999999', papel: 'PROFESSOR' } }));
+    db.aluno.create.mockResolvedValue({ id: 'a3', papel: 'ALUNO' });
+
+    await requireAuth(requisicao('Bearer ok'), res, jest.fn());
+
+    const dados = db.aluno.create.mock.calls[0][0].data;
+    expect(dados.matricula).toBe(MATRICULA);
+    expect(dados.papel).toBe('ALUNO');
+  });
+
+  it('usa o início do e-mail como nome quando o nome informado é inválido', async () => {
+    mockGetUser.mockResolvedValue(usuario({ meta: { nome: 'x' } }));
+    db.aluno.create.mockResolvedValue({ id: 'a4', papel: 'ALUNO' });
+
+    await requireAuth(requisicao('Bearer ok'), res, jest.fn());
+
+    expect(db.aluno.create.mock.calls[0][0].data.nome).toBe(MATRICULA);
+  });
+
+  it.each([
+    ['e-mail fora do domínio', 'maria@gmail.com'],
+    ['domínio parecido', `${MATRICULA}@${config.DOMINIO_ALUNO}.evil.com`],
+    ['servidor fora da lista', 'servidor@ifpa.edu.br'],
+  ])('403 para %s', async (_motivo, email) => {
+    mockGetUser.mockResolvedValue(usuario({ email }));
     await expect(requireAuth(requisicao('Bearer ok'), res, jest.fn())).rejects.toMatchObject({ status: 403 });
     expect(db.aluno.create).not.toHaveBeenCalled();
   });
 
+  it('403 quando o e-mail não foi confirmado', async () => {
+    mockGetUser.mockResolvedValue(usuario({ confirmado: null }));
+    await expect(requireAuth(requisicao('Bearer ok'), res, jest.fn())).rejects.toMatchObject({
+      status: 403,
+      message: 'Confirme seu e-mail para continuar.',
+    });
+    expect(db.aluno.create).not.toHaveBeenCalled();
+  });
+
+  it('servidor da lista de professores entra como PROFESSOR', async () => {
+    config.EMAILS_PROFESSORES = ['ana.silva@ifpa.edu.br'];
+    mockGetUser.mockResolvedValue(usuario({ email: 'ana.silva@ifpa.edu.br' }));
+    db.aluno.create.mockResolvedValue({ id: 'p1', papel: 'PROFESSOR' });
+
+    await requireAuth(requisicao('Bearer ok'), res, jest.fn());
+
+    expect(db.aluno.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ papel: 'PROFESSOR', matricula: 'prof-ana.silva' }),
+    });
+  });
+
   it('tolera corrida: outra requisição criou o aluno primeiro', async () => {
-    const criado = { id: 'a3', authId: 'auth-1', papel: 'ALUNO' };
+    const criado = { id: 'a5', authId: 'auth-1', papel: 'ALUNO' };
     mockGetUser.mockResolvedValue(usuario());
     db.aluno.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(criado);
     db.aluno.create.mockRejectedValue(new Error('unique'));
@@ -93,14 +148,15 @@ describe('requireAuth', () => {
     expect(req.aluno).toBe(criado);
   });
 
-  it('o papel nunca vem do metadata, que o próprio usuário edita', async () => {
-    mockGetUser.mockResolvedValue(usuario({ papel: 'PROFESSOR' }));
-    db.aluno.findUnique.mockResolvedValue(null);
-    db.aluno.create.mockResolvedValue({ id: 'a4', papel: 'ALUNO' });
-
-    await requireAuth(requisicao('Bearer ok'), res, jest.fn());
-
-    expect(db.aluno.create.mock.calls[0][0].data).not.toHaveProperty('papel');
+  it('409 quando a matrícula já pertence a outra conta', async () => {
+    mockGetUser.mockResolvedValue(usuario());
+    db.aluno.create.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('unique', { code: 'P2002', clientVersion: '5.22.0', meta: { target: ['matricula'] } }),
+    );
+    await expect(requireAuth(requisicao('Bearer ok'), res, jest.fn())).rejects.toMatchObject({
+      status: 409,
+      message: expect.stringContaining('matrícula'),
+    });
   });
 });
 
