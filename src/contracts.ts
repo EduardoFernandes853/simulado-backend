@@ -104,7 +104,18 @@ export type HistoricoItem = z.infer<typeof HistoricoItemSchema>;
 export type AlertaMonitoria = z.infer<typeof AlertaMonitoriaSchema>;
 export type QuestaoRevisao = z.infer<typeof QuestaoRevisaoSchema>;
 export type Revisao = z.infer<typeof RevisaoSchema>;
+// ── Identidade institucional ─────────────────────────────────────
 export const DOMINIO_ALUNO = 'aluno.ifpa.edu.br';
-export function matriculaDoEmail(_email: string, _dominio: string = DOMINIO_ALUNO): string | null {
-  throw new Error('não implementado');
+
+/**
+ * Matrícula derivada do e-mail institucional: exatamente "matrícula@domínio", só dígitos.
+ * Recusa subdomínios, sufixos, "+tag" e qualquer coisa fora do padrão.
+ * Fonte única: o backend (autoridade) e o front (validação do formulário) usam esta função.
+ */
+export function matriculaDoEmail(email: string, dominio: string = DOMINIO_ALUNO): string | null {
+  const partes = email.trim().toLowerCase().split('@');
+  if (partes.length !== 2) return null;
+  const [local, dom] = partes;
+  if (dom !== dominio.toLowerCase()) return null;
+  return /^\d{5,15}$/.test(local) ? local : null;
 }
