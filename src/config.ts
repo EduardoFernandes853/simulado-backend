@@ -15,6 +15,10 @@ const schema = z.object({
   DOMINIO_ALUNO: z.preprocess((v) => (v === '' ? undefined : v), z.string().trim().toLowerCase().min(3).default(DOMINIO_PADRAO)),
   // e-mails de servidores que podem abrir conta já como professor (separados por vírgula)
   EMAILS_PROFESSORES: z.string().default('').transform((s) => s.split(',').map((e) => e.trim().toLowerCase()).filter(Boolean)),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(20),
+  FRONT_URL: z.preprocess((v) => (v === '' ? undefined : v), z.string().url().optional()),
+  RATE_LIMIT_CADASTRO_POR_MIN: z.coerce.number().int().positive().default(20),
 });
 
 export const config = schema.parse(process.env);
+SUPABASE_SERVICE_ROLE_KEY: z.string().min(20),
