@@ -119,3 +119,4 @@ export function matriculaDoEmail(email: string, dominio: string = DOMINIO_ALUNO)
   if (dom !== dominio.toLowerCase()) return null;
   return /^\d{5,15}$/.test(local) ? local : null;
 }
+export const ConviteRespostaSchema = z.object({ mensagem: z.string() });
