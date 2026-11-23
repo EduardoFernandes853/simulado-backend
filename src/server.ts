@@ -1,3 +1,4 @@
+import './instrument';
 import { config } from './config';
 import { criarApp } from './app';
 
