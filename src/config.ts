@@ -21,4 +21,3 @@ const schema = z.object({
 });
 
 export const config = schema.parse(process.env);
-SUPABASE_SERVICE_ROLE_KEY: z.string().min(20),
