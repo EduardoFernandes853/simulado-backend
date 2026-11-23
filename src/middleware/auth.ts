@@ -6,6 +6,7 @@ import type { User } from '@supabase/supabase-js';
 import { config } from '../config';
 import { identificarPeloEmail } from '../domain/identidade';
 import { prisma } from '../prisma';
+import { cadastroPublicoFechado } from '../services/configAuth';
 import { ErroHttp } from './erros';
 
 declare global {
@@ -21,8 +22,11 @@ const supabase = createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY, {
 });
 
 async function criarCadastro(user: User): Promise<Aluno> {
-  // Só um e-mail CONFIRMADO vale como prova de identidade.
   if (!user.email_confirmed_at) throw new ErroHttp(403, 'Confirme seu e-mail para continuar.');
+
+  if (!(await cadastroPublicoFechado())) {
+    throw new ErroHttp(503, 'Cadastro temporariamente indisponível. Tente novamente mais tarde.');
+  }
 
   const email = (user.email ?? '').trim().toLowerCase();
   const identidade = identificarPeloEmail(email, {
@@ -33,7 +37,6 @@ async function criarCadastro(user: User): Promise<Aluno> {
     throw new ErroHttp(403, `O cadastro exige e-mail institucional (matrícula@${config.DOMINIO_ALUNO}).`);
   }
 
-  // user_metadata é editável pelo próprio usuário: serve só para o nome, NUNCA para matrícula ou papel.
   const nomeInformado = String(user.user_metadata?.nome ?? '').trim();
   const nome = nomeInformado.length >= 3 && nomeInformado.length <= 120 ? nomeInformado : email.split('@')[0];
 
@@ -42,7 +45,7 @@ async function criarCadastro(user: User): Promise<Aluno> {
       data: { authId: user.id, email, nome, matricula: identidade.matricula, papel: identidade.papel },
     });
   } catch (e) {
-    const existente = await prisma.aluno.findUnique({ where: { authId: user.id } }); // requisições simultâneas
+    const existente = await prisma.aluno.findUnique({ where: { authId: user.id } });
     if (existente) return existente;
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
       const campo = String(e.meta?.target ?? '');
