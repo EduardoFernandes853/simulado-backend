@@ -3,17 +3,19 @@ import { Prisma } from '@prisma/client';
 import { config } from '../config';
 import { prisma } from '../prisma';
 import { exigirProfessor, requireAuth } from './auth';
+import { cadastroPublicoFechado } from '../services/configAuth';
 
 const mockGetUser = jest.fn();
 
 jest.mock('@supabase/supabase-js', () => ({
-  // referência preguiçosa: o factory roda antes de mockGetUser existir
   createClient: () => ({ auth: { getUser: (...args: unknown[]) => mockGetUser(...args) } }),
 }));
 jest.mock('../prisma', () => ({
   prisma: { aluno: { findUnique: jest.fn(), create: jest.fn() } },
 }));
+jest.mock('../services/configAuth', () => ({ cadastroPublicoFechado: jest.fn() }));
 
+const mockFechado = cadastroPublicoFechado as jest.Mock;
 const db = prisma as unknown as { aluno: { findUnique: jest.Mock; create: jest.Mock } };
 const res = {} as Response;
 const requisicao = (authorization?: string) =>
@@ -70,7 +72,10 @@ describe('requireAuth: sessão', () => {
 });
 
 describe('requireAuth: primeiro acesso', () => {
-  beforeEach(() => db.aluno.findUnique.mockResolvedValue(null));
+  beforeEach(() => {
+    db.aluno.findUnique.mockResolvedValue(null);
+    mockFechado.mockResolvedValue(true);
+  });
 
   it('cria o cadastro com a matrícula derivada do e-mail', async () => {
     mockGetUser.mockResolvedValue(usuario());
@@ -121,6 +126,13 @@ describe('requireAuth: primeiro acesso', () => {
       status: 403,
       message: 'Confirme seu e-mail para continuar.',
     });
+    expect(db.aluno.create).not.toHaveBeenCalled();
+  });
+
+  it('503 quando o cadastro público do Supabase está aberto', async () => {
+    mockFechado.mockResolvedValue(false);
+    mockGetUser.mockResolvedValue(usuario());
+    await expect(requireAuth(requisicao('Bearer ok'), res, jest.fn())).rejects.toMatchObject({ status: 503 });
     expect(db.aluno.create).not.toHaveBeenCalled();
   });
 
