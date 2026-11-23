@@ -8,6 +8,7 @@ import { criarLimitePorIp } from './middleware/limites';
 import { simuladosRouter } from './routes/simulados';
 import { tentativasRouter } from './routes/tentativas';
 import { monitoriaRouter } from './routes/monitoria';
+import { cadastroRouter } from './routes/cadastro';
 
 interface Opcoes { limiteIpPorMin?: number }
 
@@ -27,6 +28,7 @@ export function criarApp({ limiteIpPorMin = config.RATE_LIMIT_POR_MIN }: Opcoes 
   
   app.use(criarLimitePorIp({ limite: limiteIpPorMin }));
   app.use(express.json({ limit: '100kb' }));
+  app.use('/cadastro', cadastroRouter);
   
   app.get('/me', requireAuth, (req, res) => {
     const a = req.aluno!;
