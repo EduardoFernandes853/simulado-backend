@@ -5,7 +5,7 @@ module.exports = {
   roots: ['<rootDir>/src'],
   transform: { ...createDefaultPreset().transform },
   setupFiles: ['<rootDir>/jest.setup.ts'],
-  collectCoverageFrom: ['src/**/*.ts', '!src/server.ts', '!src/prisma.ts', '!src/config.ts'],
+  collectCoverageFrom: ['src/**/*.ts', '!src/server.ts', '!src/instrument.ts','!src/prisma.ts', '!src/config.ts'],
   coverageDirectory: 'coverage',
   coverageThreshold: {
     global: {

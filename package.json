@@ -10,7 +10,8 @@
     "test": "jest",
     "test:cov": "jest --coverage",
     "test:rls": "tsx scripts/testar-rls.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "sentry:teste": "tsx scripts/sentry-teste.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
