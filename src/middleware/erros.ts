@@ -28,3 +28,7 @@ export function tratarErros(err: unknown, _req: Request, res: Response, _next: N
   console.error(err);
   res.status(500).json({ erro: 'Erro interno no servidor.' });
 }
+
+export function statusHttpDoErro(_err: unknown): number {
+  throw new Error('não implementado');
+}
