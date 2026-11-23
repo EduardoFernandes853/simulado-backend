@@ -15,7 +15,6 @@ if (config.SENTRY_DSN) {
     dsn: config.SENTRY_DSN,
     environment: config.SENTRY_ENVIRONMENT,
     release: process.env.RENDER_GIT_COMMIT,
-    sendDefaultPii: false,
     tracesSampleRate: 0, // só erros: sem tráfego de desempenho
     integrations: [expressSemCapturaAutomatica],
     beforeSend: (evento) => limparEventoOuDescartar(evento),
