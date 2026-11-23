@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import { config } from './config';
+import { comTimeout } from './domain/timeout';
+import { prisma } from './prisma';
 import { requireAuth } from './middleware/auth';
 import { tratarErros } from './middleware/erros';
 import { criarLimitePorIp } from './middleware/limites';
@@ -27,6 +29,17 @@ export function criarApp({ limiteIpPorMin = config.RATE_LIMIT_POR_MIN }: Opcoes 
   });
   
   app.use(criarLimitePorIp({ limite: limiteIpPorMin }));
+
+  app.get('/health/db', async (_req, res) => {
+    const hora = new Date().toISOString();
+    try {
+      await comTimeout(prisma.simulado.findFirst({ select: { id: true } }), 4000);
+      res.json({ status: 'ok', banco: 'ok', hora });
+    } catch {
+      res.status(503).json({ status: 'degradado', banco: 'indisponivel', hora });
+    }
+  });
+
   app.use(express.json({ limit: '100kb' }));
   app.use('/cadastro', cadastroRouter);
   
