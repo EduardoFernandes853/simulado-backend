@@ -26,7 +26,7 @@ monitoriaRouter.get('/alertas', async (req, res) => {
       criadoEm: a.criadoEm.toISOString(),
       aluno: a.aluno,
       simulado: a.tentativa.simulado.titulo,
-    }))
+    })),
   );
 });
 
@@ -34,7 +34,11 @@ monitoriaRouter.patch('/alertas/:id/atender', async (req, res) => {
   const id = IdSchema.parse(req.params.id);
   const alerta = await prisma.alertaMonitoria.update({
     where: { id },
-    data: { status: 'ATENDIDO', atendidoEm: new Date() },
+    data: {
+      status: 'ATENDIDO',
+      atendidoEm: new Date(),
+      atendidoPorId: req.aluno!.id,
+    },
   });
   res.json({ id: alerta.id, status: alerta.status });
 });

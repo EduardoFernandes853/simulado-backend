@@ -20,6 +20,7 @@ const schema = z.object({
   RATE_LIMIT_CADASTRO_POR_MIN: z.coerce.number().int().positive().default(20),
   SENTRY_DSN: z.preprocess((v) => (v === '' ? undefined : v), z.string().url().optional()),
   SENTRY_ENVIRONMENT: z.string().default('production'),
+  RATE_LIMIT_SENSIVEL_POR_MIN: z.coerce.number().int().positive().default(10),
 });
 
 export const config = schema.parse(process.env);

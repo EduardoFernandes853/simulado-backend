@@ -9,6 +9,7 @@ export const AlunoSchema = z.object({
   matricula: z.string(),
   email: z.string().email(),
   papel: z.enum(['ALUNO', 'PROFESSOR']),
+  avisoVersao: z.string().nullable(),
 });
 
 export const SimuladoResumoSchema = z.object({
@@ -120,3 +121,51 @@ export function matriculaDoEmail(email: string, dominio: string = DOMINIO_ALUNO)
   return /^\d{5,15}$/.test(local) ? local : null;
 }
 export const ConviteRespostaSchema = z.object({ mensagem: z.string() });
+export const VERSAO_AVISO = 'v1';
+
+export const AtualizarPerfilBodySchema = z.object({
+  nome: z.string().trim().min(3, 'Informe o nome completo.').max(120, 'Nome muito longo.'),
+});
+
+export const CienciaBodySchema = z.object({
+  versao: z.string().min(1).max(40),
+});
+
+export const ExcluirContaBodySchema = z.object({
+  confirmacao: z.literal('EXCLUIR'),
+});
+
+export const DadosTitularSchema = z.object({
+  geradoEm: z.string(),
+  titular: z.object({
+    id: IdSchema,
+    nome: z.string(),
+    matricula: z.string(),
+    email: z.string(),
+    papel: z.enum(['ALUNO', 'PROFESSOR']),
+    criadoEm: z.string(),
+    avisoVersao: z.string().nullable(),
+    avisoAceitoEm: z.string().nullable(),
+  }),
+  tentativas: z.array(z.object({
+    id: IdSchema,
+    simulado: z.string(),
+    iniciadaEm: z.string(),
+    finalizadaEm: z.string().nullable(),
+    status: z.string(),
+    nota: z.number().nullable(),
+    respostas: z.array(z.object({
+      questaoId: IdSchema,
+      alternativa: z.string(),
+      correta: z.boolean(),
+    })),
+  })),
+  alertas: z.array(z.object({
+    id: IdSchema,
+    nota: z.number(),
+    limiar: z.number(),
+    status: z.enum(['PENDENTE', 'ATENDIDO']),
+    criadoEm: z.string(),
+    atendidoEm: z.string().nullable(),
+  })),
+});

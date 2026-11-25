@@ -97,7 +97,11 @@ describe('professor', () => {
     expect(res.body).toEqual({ id: ALERTA, status: 'ATENDIDO' });
     expect(db.alertaMonitoria.update).toHaveBeenCalledWith({
       where: { id: ALERTA },
-      data: { status: 'ATENDIDO', atendidoEm: expect.any(Date) },
+      data: {
+        status: 'ATENDIDO',
+        atendidoEm: expect.any(Date),
+        atendidoPorId: '55555555-5555-4555-8555-555555555555',
+      },
     });
   });
 });
