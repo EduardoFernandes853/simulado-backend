@@ -35,6 +35,8 @@ model Aluno {
   authId    String?  @unique @map("auth_id") @db.Uuid  
   matricula String   @unique  
   nome      String  
+  avisoVersao   String?   @map("aviso_versao")
+  avisoAceitoEm DateTime? @map("aviso_aceito_em")
   email     String   @unique  
   papel     Papel    @default(ALUNO)  
   criadoEm  DateTime @default(now()) @map("criado_em")  
@@ -152,7 +154,8 @@ model AlertaMonitoria {
   tentativaId String       @unique @map("tentativa_id") @db.Uuid  
   alunoId     String       @map("aluno_id") @db.Uuid  
   nota        Decimal      @db.Decimal(5, 2)  
-  limiar      Decimal      @db.Decimal(5, 2)  
+  limiar      Decimal      @db.Decimal(5, 2)
+  atendidoPorId String? @map("atendido_por_id") @db.Uuid  
   status      StatusAlerta @default(PENDENTE)  
   criadoEm    DateTime     @default(now()) @map("criado_em")  
   atendidoEm  DateTime?    @map("atendido_em")  
