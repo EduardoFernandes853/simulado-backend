@@ -24,6 +24,7 @@ jest.mock('../middleware/auth', () => ({
       email: 'maria@ifpa.edu.br',
       papel: 'ALUNO',
       criadoEm: new Date('2026-11-01T12:00:00.000Z'),
+      avisoVersao: null,
     };
     next();
   },
@@ -40,7 +41,11 @@ jest.mock('../prisma', () => {
     prisma: {
       simulado: { findFirst: jest.fn(), findMany: jest.fn() },
       tentativa: {
-        findFirst: jest.fn(), findMany: jest.fn(), create: jest.fn(), update: jest.fn(), updateMany: jest.fn(),
+        findFirst: jest.fn(),
+        findMany: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+        updateMany: jest.fn(),
       },
       simuladoQuestao: { findMany: jest.fn() },
       alertaMonitoria: { findMany: jest.fn() },
@@ -52,7 +57,13 @@ jest.mock('../prisma', () => {
 
 const db = prisma as unknown as {
   simulado: { findFirst: jest.Mock; findMany: jest.Mock };
-  tentativa: { findFirst: jest.Mock; findMany: jest.Mock; create: jest.Mock; update: jest.Mock; updateMany: jest.Mock };
+  tentativa: {
+    findFirst: jest.Mock;
+    findMany: jest.Mock;
+    create: jest.Mock;
+    update: jest.Mock;
+    updateMany: jest.Mock;
+  };
   simuladoQuestao: { findMany: jest.Mock };
   alertaMonitoria: { findMany: jest.Mock };
   $transaction: jest.Mock;
@@ -70,8 +81,8 @@ const Q2 = '33333333-3333-4333-8333-333333333333';
 const A1 = '77777777-7777-4777-8777-777777777777';
 
 /**
-- Valida a resposta contra o schema que o front usa E exige que nada tenha sido descartado:
-- z.object() ignora campos extras sem avisar, então um vazamento (ex.: gabarito) passaria batido.
+ * Valida a resposta contra o schema que o front usa E exige que nada tenha sido descartado:
+ * z.object() ignora campos extras sem avisar, então um vazamento (ex.: gabarito) passaria batido.
  */
 function exigirContrato<S extends ZodTypeAny>(schema: S, corpo: unknown): z.infer<S> {
   const r = schema.safeParse(corpo);
@@ -135,7 +146,8 @@ describe('contrato: POST /simulados/:id/tentativas', () => {
       {
         ordem: 1,
         questao: {
-          id: Q1, enunciado: 'Qual protocolo é orientado a conexão?',
+          id: Q1,
+          enunciado: 'Qual protocolo é orientado a conexão?',
           topico: { nome: 'Transporte', disciplina: { nome: 'Redes' } },
           alternativas: [{ letra: 'A', texto: 'TCP' }, { letra: 'B', texto: 'UDP' }],
         },
@@ -143,7 +155,8 @@ describe('contrato: POST /simulados/:id/tentativas', () => {
       {
         ordem: 2,
         questao: {
-          id: Q2, enunciado: 'Quanto é 2 + 2?',
+          id: Q2,
+          enunciado: 'Quanto é 2 + 2?',
           topico: { nome: 'Álgebra', disciplina: { nome: 'Matemática' } },
           alternativas: [{ letra: 'A', texto: '3' }, { letra: 'B', texto: '4' }],
         },
@@ -184,7 +197,10 @@ describe('contrato: POST /tentativas/:id/finalizar', () => {
     },
   });
   const tentativaAberta = () => ({
-    id: T, simuladoId: S, status: 'EM_ANDAMENTO', prazoEm: new Date(Date.now() + 60_000),
+    id: T,
+    simuladoId: S,
+    status: 'EM_ANDAMENTO',
+    prazoEm: new Date(Date.now() + 60_000),
   });
 
   beforeEach(() => {
