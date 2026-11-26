@@ -9,6 +9,8 @@
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "test:cov": "jest --coverage",
+    "test:int": "jest --config jest.int.config.js",
+    "test:int:preparar": "tsx scripts/preparar-banco-teste.ts",
     "test:rls": "tsx scripts/testar-rls.ts",
     "postinstall": "prisma generate",
     "sentry:teste": "tsx scripts/sentry-teste.ts"
