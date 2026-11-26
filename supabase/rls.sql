@@ -5,7 +5,7 @@ BEGIN
   FOREACH t IN ARRAY ARRAY[
     'alunos','disciplinas','topicos','questoes','alternativas','gabaritos',
     'simulados','simulado_questoes','tentativas','respostas','alertas_monitoria',
-    '_prisma_migrations'
+    '_prisma_migrations','auditoria'
   ] LOOP
     EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
     EXECUTE format('REVOKE ALL ON public.%I FROM anon', t);

@@ -69,6 +69,8 @@ async function main() {
   checar('Aluno NÃO lê o gabarito', vazio(gab), gab);
   const quest = await a.from('questoes').select('*');
   checar('Aluno NÃO lê o banco de questões fora de uma tentativa', vazio(quest), quest);
+  const aud = await a.from('auditoria').select('*');
+  checar('Aluno NÃO lê a auditoria', vazio(aud), aud);
 
   const visitante = await anon.from('alunos').select('*');
   checar('Visitante sem login NÃO lê alunos', vazio(visitante), visitante);
