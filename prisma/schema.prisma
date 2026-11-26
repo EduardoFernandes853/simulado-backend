@@ -1,167 +1,214 @@
-generator client {  
+generator client {
   provider = "prisma-client-js"
 }
 
-datasource db {  
-  provider  = "postgresql"  
-  url       = env("DATABASE_URL")  
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
-enum Papel {  
-  ALUNO  
+enum Papel {
+  ALUNO
   PROFESSOR
 }
 
-enum Dificuldade {  
-  FACIL  
-  MEDIA  
+enum Dificuldade {
+  FACIL
+  MEDIA
   DIFICIL
 }
 
-enum StatusTentativa {  
-  EM_ANDAMENTO  
-  FINALIZADA  
+enum StatusTentativa {
+  EM_ANDAMENTO
+  FINALIZADA
   EXPIRADA
 }
 
-enum StatusAlerta {  
-  PENDENTE  
+enum StatusAlerta {
+  PENDENTE
   ATENDIDO
 }
 
-model Aluno {  
-  id        String   @id @default(uuid()) @db.Uuid  
-  authId    String?  @unique @map("auth_id") @db.Uuid  
-  matricula String   @unique  
-  nome      String  
-  avisoVersao   String?   @map("aviso_versao")
-  avisoAceitoEm DateTime? @map("aviso_aceito_em")
-  email     String   @unique  
-  papel     Papel    @default(ALUNO)  
-  criadoEm  DateTime @default(now()) @map("criado_em")  
-  tentativas Tentativa[]  
-  alertas    AlertaMonitoria[]  
+enum StatusQuestao {
+  RASCUNHO
+  ATIVA
+  ARQUIVADA
+}
+
+enum StatusSimulado {
+  RASCUNHO
+  PUBLICADO
+  ENCERRADO
+  ARQUIVADO
+}
+
+enum PoliticaRevisao {
+  IMEDIATA
+  APOS_ENCERRAMENTO
+  NUNCA
+}
+
+model Aluno {
+  id            String            @id @default(uuid()) @db.Uuid
+  authId        String?           @unique @map("auth_id") @db.Uuid
+  matricula     String            @unique
+  nome          String
+  avisoVersao   String?           @map("aviso_versao")
+  avisoAceitoEm DateTime?         @map("aviso_aceito_em")
+  email         String            @unique
+  papel         Papel             @default(ALUNO)
+  criadoEm      DateTime          @default(now()) @map("criado_em")
+  tentativas    Tentativa[]
+  alertas       AlertaMonitoria[]
   @@map("alunos")
 }
 
-model Disciplina {  
-  id      String   @id @default(uuid()) @db.Uuid  
-  nome    String   @unique  
-  topicos Topico[]  
+model Disciplina {
+  id      String   @id @default(uuid()) @db.Uuid
+  nome    String   @unique
+  topicos Topico[]
   @@map("disciplinas")
 }
 
-model Topico {  
-  id           String     @id @default(uuid()) @db.Uuid  
-  nome         String  
-  disciplinaId String     @map("disciplina_id") @db.Uuid  
-  disciplina   Disciplina @relation(fields: [disciplinaId], references: [id], onDelete: Cascade)  
-  questoes     Questao[]  
-  @@unique([disciplinaId, nome])  
+model Topico {
+  id           String     @id @default(uuid()) @db.Uuid
+  nome         String
+  disciplinaId String     @map("disciplina_id") @db.Uuid
+  disciplina   Disciplina @relation(fields: [disciplinaId], references: [id], onDelete: Cascade)
+  questoes     Questao[]
+  @@unique([disciplinaId, nome])
   @@map("topicos")
 }
 
-model Questao {  
-  id          String      @id @default(uuid()) @db.Uuid  
-  enunciado   String      @db.Text  
-  dificuldade Dificuldade @default(MEDIA)  
-  topicoId    String      @map("topico_id") @db.Uuid  
-  topico      Topico      @relation(fields: [topicoId], references: [id], onDelete: Restrict)  
-  alternativas Alternativa[]  
-  gabarito     Gabarito?  
-  simulados    SimuladoQuestao[]  
-  respostas    Resposta[]  
-  @@index([topicoId])  
+model Questao {
+  id              String            @id @default(uuid()) @db.Uuid
+  enunciado       String            @db.Text
+  dificuldade     Dificuldade       @default(MEDIA)
+  status          StatusQuestao     @default(ATIVA)
+  fonte           String?
+  versao          Int               @default(1)
+  origemId        String?           @map("origem_id") @db.Uuid
+  criadoPorId     String?           @map("criado_por_id") @db.Uuid
+  atualizadoPorId String?           @map("atualizado_por_id") @db.Uuid
+  criadoEm        DateTime          @default(now()) @map("criado_em")
+  atualizadoEm    DateTime          @default(now()) @updatedAt @map("atualizado_em")
+  topicoId        String            @map("topico_id") @db.Uuid
+  topico          Topico            @relation(fields: [topicoId], references: [id], onDelete: Restrict)
+  alternativas    Alternativa[]
+  gabarito        Gabarito?
+  simulados       SimuladoQuestao[]
+  respostas       Resposta[]
+  @@index([topicoId])
+  @@index([status])
   @@map("questoes")
 }
 
-model Alternativa {  
-  id        String  @id @default(uuid()) @db.Uuid  
-  questaoId String  @map("questao_id") @db.Uuid  
-  letra     String  
-  texto     String  @db.Text  
-  questao   Questao @relation(fields: [questaoId], references: [id], onDelete: Cascade)  
-  @@unique([questaoId, letra])  
+model Alternativa {
+  id        String  @id @default(uuid()) @db.Uuid
+  questaoId String  @map("questao_id") @db.Uuid
+  letra     String
+  texto     String  @db.Text
+  questao   Questao @relation(fields: [questaoId], references: [id], onDelete: Cascade)
+  @@unique([questaoId, letra])
   @@map("alternativas")
 }
 
-model Gabarito {  
-  questaoId          String  @id @map("questao_id") @db.Uuid  
-  alternativaCorreta String  @map("alternativa_correta")  
-  justificativa      String? @db.Text  
-  questao            Questao @relation(fields: [questaoId], references: [id], onDelete: Cascade)  
+model Gabarito {
+  questaoId          String  @id @map("questao_id") @db.Uuid
+  alternativaCorreta String  @map("alternativa_correta")
+  justificativa      String? @db.Text
+  questao            Questao @relation(fields: [questaoId], references: [id], onDelete: Cascade)
   @@map("gabaritos")
 }
 
-model Simulado {  
-  id         String   @id @default(uuid()) @db.Uuid  
-  titulo     String  
-  descricao  String?  @db.Text  
-  duracaoMin Int      @default(60) @map("duracao_min")  
-  publicado  Boolean  @default(false)  
-  criadoEm   DateTime @default(now()) @map("criado_em")  
-  questoes   SimuladoQuestao[]  
-  tentativas Tentativa[]  
+model Simulado {
+  id            String            @id @default(uuid()) @db.Uuid
+  titulo        String
+  descricao     String?           @db.Text
+  duracaoMin    Int               @default(60) @map("duracao_min")
+  publicado     Boolean           @default(false)
+  status        StatusSimulado    @default(RASCUNHO)
+  abreEm        DateTime?         @map("abre_em")
+  fechaEm       DateTime?         @map("fecha_em")
+  maxTentativas Int?              @map("max_tentativas")
+  revisao       PoliticaRevisao   @default(IMEDIATA)
+  criadoPorId   String?           @map("criado_por_id") @db.Uuid
+  criadoEm      DateTime          @default(now()) @map("criado_em")
+  atualizadoEm  DateTime          @default(now()) @updatedAt @map("atualizado_em")
+  questoes      SimuladoQuestao[]
+  tentativas    Tentativa[]
   @@map("simulados")
 }
 
-model SimuladoQuestao {  
-  simuladoId String   @map("simulado_id") @db.Uuid  
-  questaoId  String   @map("questao_id") @db.Uuid  
-  ordem      Int  
-  simulado   Simulado @relation(fields: [simuladoId], references: [id], onDelete: Cascade)  
-  questao    Questao  @relation(fields: [questaoId], references: [id], onDelete: Restrict)  
-  @@id([simuladoId, questaoId])  
-  @@unique([simuladoId, ordem])  
-  @@index([questaoId])  // <--- ÍNDICE ADICIONADO AQUI
+model SimuladoQuestao {
+  simuladoId String   @map("simulado_id") @db.Uuid
+  questaoId  String   @map("questao_id") @db.Uuid
+  ordem      Int
+  simulado   Simulado @relation(fields: [simuladoId], references: [id], onDelete: Cascade)
+  questao    Questao  @relation(fields: [questaoId], references: [id], onDelete: Restrict)
+  @@id([simuladoId, questaoId])
+  @@unique([simuladoId, ordem])
+  @@index([questaoId])
   @@map("simulado_questoes")
 }
 
-model Tentativa {  
-  id           String          @id @default(uuid()) @db.Uuid  
-  alunoId      String          @map("aluno_id") @db.Uuid  
-  simuladoId   String          @map("simulado_id") @db.Uuid  
-  iniciadaEm   DateTime        @default(now()) @map("iniciada_em")  
-  prazoEm      DateTime        @map("prazo_em")  
-  finalizadaEm DateTime?       @map("finalizada_em")  
-  nota         Decimal?        @db.Decimal(5, 2)  
-  status       StatusTentativa @default(EM_ANDAMENTO)  
-  aluno        Aluno           @relation(fields: [alunoId], references: [id], onDelete: Cascade)  
-  simulado     Simulado        @relation(fields: [simuladoId], references: [id], onDelete: Cascade)  
-  respostas    Resposta[]  
-  alerta       AlertaMonitoria?  
-  @@index([alunoId])  
-  @@index([simuladoId])  
+model Tentativa {
+  id           String           @id @default(uuid()) @db.Uuid
+  alunoId      String           @map("aluno_id") @db.Uuid
+  simuladoId   String           @map("simulado_id") @db.Uuid
+  iniciadaEm   DateTime         @default(now()) @map("iniciada_em")
+  prazoEm      DateTime         @map("prazo_em")
+  finalizadaEm DateTime?        @map("finalizada_em")
+  nota         Decimal?         @db.Decimal(5, 2)
+  status       StatusTentativa  @default(EM_ANDAMENTO)
+  aluno        Aluno            @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+  simulado     Simulado         @relation(fields: [simuladoId], references: [id], onDelete: Cascade)
+  respostas    Resposta[]
+  alerta       AlertaMonitoria?
+  @@index([alunoId])
+  @@index([simuladoId])
   @@map("tentativas")
 }
 
-model Resposta {  
-  id          String    @id @default(uuid()) @db.Uuid  
-  tentativaId String    @map("tentativa_id") @db.Uuid  
-  questaoId   String    @map("questao_id") @db.Uuid  
-  alternativa String  
-  correta     Boolean  
-  tentativa   Tentativa @relation(fields: [tentativaId], references: [id], onDelete: Cascade)  
-  questao     Questao   @relation(fields: [questaoId], references: [id], onDelete: Restrict)  
-  @@unique([tentativaId, questaoId])  
-  @@index([questaoId]) // <--- ÍNDICE ADICIONADO AQUI
+model Resposta {
+  id          String    @id @default(uuid()) @db.Uuid
+  tentativaId String    @map("tentativa_id") @db.Uuid
+  questaoId   String    @map("questao_id") @db.Uuid
+  alternativa String
+  correta     Boolean
+  tentativa   Tentativa @relation(fields: [tentativaId], references: [id], onDelete: Cascade)
+  questao     Questao   @relation(fields: [questaoId], references: [id], onDelete: Restrict)
+  @@unique([tentativaId, questaoId])
+  @@index([questaoId])
   @@map("respostas")
 }
 
-model AlertaMonitoria {  
-  id          String       @id @default(uuid()) @db.Uuid  
-  tentativaId String       @unique @map("tentativa_id") @db.Uuid  
-  alunoId     String       @map("aluno_id") @db.Uuid  
-  nota        Decimal      @db.Decimal(5, 2)  
-  limiar      Decimal      @db.Decimal(5, 2)
-  atendidoPorId String? @map("atendido_por_id") @db.Uuid  
-  status      StatusAlerta @default(PENDENTE)  
-  criadoEm    DateTime     @default(now()) @map("criado_em")  
-  atendidoEm  DateTime?    @map("atendido_em")  
-  tentativa   Tentativa    @relation(fields: [tentativaId], references: [id], onDelete: Cascade)  
-  aluno       Aluno        @relation(fields: [alunoId], references: [id], onDelete: Cascade)  
-  @@index([status])  
-  @@index([alunoId]) // <--- ÍNDICE ADICIONADO AQUI
+model AlertaMonitoria {
+  id            String       @id @default(uuid()) @db.Uuid
+  tentativaId   String       @unique @map("tentativa_id") @db.Uuid
+  alunoId       String       @map("aluno_id") @db.Uuid
+  nota          Decimal      @db.Decimal(5, 2)
+  limiar        Decimal      @db.Decimal(5, 2)
+  atendidoPorId String?      @map("atendido_por_id") @db.Uuid
+  status        StatusAlerta @default(PENDENTE)
+  criadoEm      DateTime     @default(now()) @map("criado_em")
+  atendidoEm    DateTime?    @map("atendido_em")
+  tentativa     Tentativa    @relation(fields: [tentativaId], references: [id], onDelete: Cascade)
+  aluno         Aluno        @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+  @@index([status])
+  @@index([alunoId])
   @@map("alertas_monitoria")
+}
+
+model Auditoria {
+  id         String   @id @default(uuid()) @db.Uuid
+  atorId     String   @map("ator_id") @db.Uuid
+  acao       String
+  entidade   String
+  entidadeId String   @map("entidade_id") @db.Uuid
+  detalhe    Json?
+  criadoEm   DateTime @default(now()) @map("criado_em")
+  @@index([entidade, entidadeId])
+  @@map("auditoria")
 }

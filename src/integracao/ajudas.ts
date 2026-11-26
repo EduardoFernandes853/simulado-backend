@@ -3,6 +3,7 @@ import { prisma } from '../prisma';
 
 export const TABELAS_DE_APLICACAO = [
   'alertas_monitoria',
+  'auditoria',
   'respostas',
   'tentativas',
   'simulado_questoes',
@@ -83,6 +84,7 @@ export async function criarSimuladoCompleto(totalQuestoes = 3) {
       titulo: 'Simulado de teste',
       duracaoMin: 30,
       publicado: true,
+      status: 'PUBLICADO',
       questoes: {
         create: questoes.map((q, i) => ({ questaoId: q.id, ordem: i + 1 })),
       },
