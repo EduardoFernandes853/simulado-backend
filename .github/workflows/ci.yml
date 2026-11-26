@@ -22,7 +22,7 @@ jobs:
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
       DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
         with:
           node-version: 22
@@ -53,7 +53,7 @@ jobs:
       DATABASE_URL: postgresql://postgres:teste@localhost:5432/simulado_teste
       DIRECT_URL: postgresql://postgres:teste@localhost:5432/simulado_teste
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
         with:
           node-version: 22
