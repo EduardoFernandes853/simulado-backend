@@ -31,3 +31,33 @@ jobs:
       - run: npx prisma validate
       - run: npm run typecheck
       - run: npm run test:cov
+
+  integracao:
+    name: Testes de integração (Postgres 17)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: teste
+          POSTGRES_DB: simulado_teste
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL_TESTE: postgresql://postgres:teste@localhost:5432/simulado_teste
+      DATABASE_URL: postgresql://postgres:teste@localhost:5432/simulado_teste
+      DIRECT_URL: postgresql://postgres:teste@localhost:5432/simulado_teste
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:int:preparar
+      - run: npm run test:int
